@@ -216,3 +216,17 @@ class Learner:
             _, predicted = output.max(1)
 
         return self.class_names[predicted.item()]
+
+
+learner = Learner(
+    dataset_path="dataset",
+    model_name="resnet",
+    batch_size=32,
+    epochs=10,
+    lr=0.001,
+    work_dir="checkpoints",
+)
+learner.train()
+
+learner.load_best_model()
+print(learner.predict("./img_test/ong4.jpg"))
