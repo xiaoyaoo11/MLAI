@@ -7,30 +7,10 @@ import torch.optim as optim
 from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-import os
 
-# Set environment variables to optimize performance
-os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
-os.environ["OMP_NUM_THREADS"] = str(os.cpu_count())
-os.environ["MKL_NUM_THREADS"] = str(os.cpu_count())
-
-# Simplified device selection
-if torch.cuda.is_available():
-    device = torch.device("cuda")
-    print(f"Using CUDA device: {torch.cuda.get_device_name(0)}")
-elif hasattr(torch, 'mps') and torch.backends.mps.is_available():
-    device = torch.device("mps")
-    print("Using Apple MPS device")
-else:
-    device = torch.device("cpu")
-    # Enable oneDNN optimizations for CPU
-    if hasattr(torch.backends, 'mkldnn'):
-        torch.backends.mkldnn.enabled = True
-        print("Using CPU with oneDNN optimizations")
-    else:
-        print("Using CPU without oneDNN optimizations")
-
-print(f"PyTorch version: {torch.__version__}")
+# Set device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
 
 # Set seed for reproducibility
 torch.manual_seed(42)
@@ -138,29 +118,29 @@ class ImprovedCNN(nn.Module):
     def __init__(self, num_classes=8):
         super(ImprovedCNN, self).__init__()
         
-        # Initial convolution (reduced to 24 filters to save parameters)
-        self.conv1 = nn.Conv2d(3, 24, kernel_size=3, stride=2, padding=1)
-        self.bn1 = nn.BatchNorm2d(24)
+        # Initial convolution
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1)
+        self.bn1 = nn.BatchNorm2d(32)
         self.relu = nn.ReLU(inplace=True)
         
-        # Residual blocks (reduced channels)
+        # Residual blocks
         self.layer1 = nn.Sequential(
-            ResidualBlock(24, 32),
+            ResidualBlock(32, 32),
             ChannelAttention(32)
         )
         self.layer2 = nn.Sequential(
-            ResidualBlock(32, 48, stride=2),
-            ChannelAttention(48)
+            ResidualBlock(32, 64, stride=2),
+            ChannelAttention(64)
         )
         self.layer3 = nn.Sequential(
-            ResidualBlock(48, 64, stride=2),
-            ChannelAttention(64)
+            ResidualBlock(64, 96, stride=2),
+            ChannelAttention(96)
         )
         
         # Global average pooling and classifier
         self.global_pool = nn.AdaptiveAvgPool2d(1)
         self.dropout = nn.Dropout(0.5)
-        self.fc = nn.Linear(64, num_classes)
+        self.fc = nn.Linear(96, num_classes)
         
         # Initialize weights
         self._initialize_weights()
