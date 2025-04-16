@@ -1,6 +1,6 @@
 # Class Learner
 
-A robust image classification project using PyTorch, featuring advanced model architectures, training optimizations, and easy-to-use prediction capabilities.
+A robust image classification project using PyTorch, featuring advanced model architectures, training optimizations, and easy-to-use prediction capabilities with a web interface for image classification.
 
 ## Features
 
@@ -9,6 +9,7 @@ A robust image classification project using PyTorch, featuring advanced model ar
 - Flexible prediction system for both single images and batch processing
 - Learning rate scheduling and regularization techniques
 - Support for model checkpointing and best model saving
+- Web interface for easy image uploads and classification
 
 ## Project Structure
 
@@ -17,8 +18,11 @@ Class Learner/
 ├── train.py             # Main training script
 ├── predict.py           # Prediction utilities for trained models
 ├── optimized_learner.py # Core learner implementation
+├── app.py               # Flask web application for image classification
+├── templates/           # HTML templates for web interface
+├── static/              # Static files for web interface
 ├── checkpoints/         # Directory for saved models
-└── dataset/            # Directory for training data
+└── dataset/             # Directory for training data
 ```
 
 ## Requirements
@@ -26,6 +30,7 @@ Class Learner/
 - Python 3.7+
 - PyTorch
 - torchvision
+- Flask
 - Other dependencies (install via requirements.txt)
 
 ## Installation
@@ -92,19 +97,40 @@ Key parameters in `train.py`:
 - `dataset_path`: Path to your dataset
 - `work_dir`: Directory for saving checkpoints
 
-### Prediction
+### Command Line Prediction
 
 For single image prediction:
 
 ```bash
-python predict.py --image_path path/to/image.jpg --checkpoint_path checkpoints/best_model.pth
+python predict.py --image path/to/image.jpg
 ```
 
 For batch prediction on a folder:
 
 ```bash
-python predict.py --image_folder path/to/folder --checkpoint_path checkpoints/best_model.pth
+python predict.py --image_folder path/to/folder
 ```
+
+### Web Interface
+
+Run the web application:
+
+```bash
+# Simple startup
+./run.sh
+
+# With requirements installation
+./run.sh --install
+```
+
+Or manually start the Flask application:
+
+```bash
+export FLASK_APP=app.py
+flask run --host=0.0.0.0 --port=5000
+```
+
+Then open your browser and navigate to `http://localhost:5000` to access the web interface.
 
 ## Model Architecture
 
@@ -134,6 +160,13 @@ The training pipeline includes several optimizations:
 - Learning rate warm-up
 - Mixup data augmentation
 - Dropout for regularization
+
+## Web Interface Features
+
+- Simple drag-and-drop or file selection for image uploading
+- Real-time image classification with model predictions
+- Confidence score display for predictions
+- Responsive design for desktop and mobile devices
 
 ## Contributing
 

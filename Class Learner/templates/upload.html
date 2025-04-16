@@ -1,0 +1,81 @@
+{% extends "base.html" %} {% block title %}Image Classifier - Upload{% endblock
+%} {% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header bg-primary text-white">
+        <h5 class="card-title mb-0">Image Classification</h5>
+      </div>
+      <div class="card-body">
+        <h5>Upload an image for classification</h5>
+
+        {% if error %}
+        <div class="alert alert-danger" role="alert">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" enctype="multipart/form-data" class="mt-4">
+          <div class="mb-3">
+            <label for="fileInput" class="form-label"
+              >Choose an image file (PNG, JPG)</label
+            >
+            <input
+              class="form-control"
+              type="file"
+              id="fileInput"
+              name="file"
+              accept=".jpg,.jpeg,.png"
+            />
+          </div>
+          <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-primary">
+              Upload and Classify
+            </button>
+          </div>
+        </form>
+
+        {% if result %}
+        <hr class="my-4" />
+        <div class="result-container">
+          <h5>Classification Result</h5>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="image-preview">
+                <img
+                  src="{{ url_for('static', filename=result.image) }}"
+                  class="img-fluid rounded"
+                  alt="Uploaded Image"
+                />
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="prediction-details">
+                {% if result.error %}
+                <div class="alert alert-danger" role="alert">
+                  {{ result.error }}
+                </div>
+                {% else %}
+                <div class="card">
+                  <div class="card-body">
+                    <h5 class="card-title">{{ result.prediction }}</h5>
+                    <p class="card-text">Confidence: {{ result.confidence }}</p>
+                  </div>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+  document
+    .getElementById("fileInput")
+    .addEventListener("change", function (event) {
+      // You could add client-side preview here if desired
+    });
+</script>
+{% endblock %}
