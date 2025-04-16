@@ -119,7 +119,7 @@ def main():
 
     # Example inference
     try:
-        prediction = learner.inference("./img_test/ong4.jpg")
+        prediction = learner.inference("./img_test/ant.jpg")
         print(f"Prediction: {prediction}")
     except FileNotFoundError:
         print("Test image not found. Skipping inference demonstration.")
