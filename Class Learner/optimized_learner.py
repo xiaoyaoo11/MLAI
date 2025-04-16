@@ -197,7 +197,8 @@ class Learner:
             history["train_acc"].append(train_acc)
 
             # Evaluation phase
-            val_loss, val_acc = self.test(self.test_dataloader)
+            val_loss, val_metrics = self.test(self.test_dataloader)
+            val_acc = val_metrics["accuracy"]
             history["val_loss"].append(val_loss)
             history["val_acc"].append(val_acc)
 
@@ -243,24 +244,30 @@ class Learner:
 
         return history
 
-    def test(self, test_dataloader: Optional[DataLoader] = None) -> Tuple[float, float]:
+    def test(
+        self, test_dataloader: Optional[DataLoader] = None
+    ) -> Tuple[float, Dict[str, float]]:
         """
-        Test the model on a dataset and return loss and accuracy.
+        Test the model on a dataset and return loss and various performance metrics.
+        Metrics include accuracy, precision, recall, F1-score, and confusion matrix.
 
         Args:
             test_dataloader: DataLoader for test data. If None, use the instance's test_dataloader.
 
         Returns:
-            Tuple of (loss, accuracy)
+            Tuple of (loss, metrics_dict) where metrics_dict contains various performance metrics
         """
+        import sklearn.metrics as metrics
+
         dataloader = (
             test_dataloader if test_dataloader is not None else self.test_dataloader
         )
 
         self.model.eval()
         running_loss = 0.0
-        correct = 0
-        total = 0
+
+        all_targets = []
+        all_predictions = []
 
         with torch.no_grad():
             for inputs, targets in dataloader:
@@ -271,13 +278,64 @@ class Learner:
 
                 running_loss += loss.item() * inputs.size(0)
                 _, predicted = outputs.max(1)
-                total += targets.size(0)
-                correct += predicted.eq(targets).sum().item()
 
+                # Store targets and predictions for computing metrics
+                all_targets.extend(targets.cpu().numpy())
+                all_predictions.extend(predicted.cpu().numpy())
+
+        # Convert to numpy arrays for sklearn metrics
+        all_targets = np.array(all_targets)
+        all_predictions = np.array(all_predictions)
+
+        # Calculate metrics
         avg_loss = running_loss / len(dataloader.dataset)
-        accuracy = 100.0 * correct / total
+        accuracy = 100.0 * metrics.accuracy_score(all_targets, all_predictions)
 
-        return avg_loss, accuracy
+        # Handle case with only one class in some batches
+        if len(np.unique(all_targets)) > 1:
+            # For multi-class, calculate macro-averaged metrics (treats all classes equally)
+            precision = 100.0 * metrics.precision_score(
+                all_targets, all_predictions, average="macro", zero_division=0
+            )
+            recall = 100.0 * metrics.recall_score(
+                all_targets, all_predictions, average="macro", zero_division=0
+            )
+            f1 = 100.0 * metrics.f1_score(
+                all_targets, all_predictions, average="macro", zero_division=0
+            )
+
+            # Weighted metrics (accounts for class imbalance)
+            precision_weighted = 100.0 * metrics.precision_score(
+                all_targets, all_predictions, average="weighted", zero_division=0
+            )
+            recall_weighted = 100.0 * metrics.recall_score(
+                all_targets, all_predictions, average="weighted", zero_division=0
+            )
+            f1_weighted = 100.0 * metrics.f1_score(
+                all_targets, all_predictions, average="weighted", zero_division=0
+            )
+        else:
+            # Handle single class case (or batch with same class predictions)
+            precision = recall = f1 = precision_weighted = recall_weighted = (
+                f1_weighted
+            ) = 0.0
+
+        # Create confusion matrix
+        confusion_mat = metrics.confusion_matrix(all_targets, all_predictions)
+
+        # Return metrics in a dictionary
+        metrics_dict = {
+            "accuracy": accuracy,
+            "precision_macro": precision,
+            "recall_macro": recall,
+            "f1_macro": f1,
+            "precision_weighted": precision_weighted,
+            "recall_weighted": recall_weighted,
+            "f1_weighted": f1_weighted,
+            "confusion_matrix": confusion_mat,
+        }
+
+        return avg_loss, metrics_dict
 
     def inference(self, image_path: str) -> str:
         """

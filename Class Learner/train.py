@@ -113,9 +113,21 @@ def main():
     # Load the best model for evaluation
     learner._load_best_model()
     
-    # Test the model
-    test_loss, test_acc = learner.test()
-    print(f"Final test accuracy: {test_acc:.2f}%")
+    # Test the model and print all metrics
+    test_loss, metrics = learner.test()
+    print(f"Final test results:")
+    print(f"  Loss: {test_loss:.4f}")
+    print(f"  Accuracy: {metrics['accuracy']:.2f}%")
+    print(f"  Precision (macro): {metrics['precision_macro']:.2f}%")
+    print(f"  Recall (macro): {metrics['recall_macro']:.2f}%")
+    print(f"  F1 Score (macro): {metrics['f1_macro']:.2f}%")
+    print(f"  Precision (weighted): {metrics['precision_weighted']:.2f}%")
+    print(f"  Recall (weighted): {metrics['recall_weighted']:.2f}%")
+    print(f"  F1 Score (weighted): {metrics['f1_weighted']:.2f}%")
+    
+    # Print confusion matrix
+    print("\nConfusion Matrix:")
+    print(metrics['confusion_matrix'])
 
     # Example inference
     try:
