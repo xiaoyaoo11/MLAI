@@ -62,8 +62,8 @@ The project implements an enhanced ResNet101 architecture with:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/Class-Learner.git
-   cd Class-Learner
+   git clone https://github.com/xiaoyaoo11/MLAI.git
+   cd MLAI/Class Learner
    ```
 
 2. Create and activate a virtual environment:
@@ -206,10 +206,6 @@ Contributions to Class Learner are welcome! Please feel free to submit pull requ
 - Documentation improvements
 - Performance optimizations
 
-## License
-
-[MIT License](LICENSE)
-
 ## Acknowledgments
 
 - PyTorch team for their excellent deep learning framework
@@ -219,5 +215,5 @@ Contributions to Class Learner are welcome! Please feel free to submit pull requ
 ## Contact
 
 For questions, suggestions, or collaboration opportunities:
-- GitHub Issues: [project issues page](https://github.com/yourusername/Class-Learner/issues)
-- Email: your.email@example.com
+- GitHub Issues: [project issues page](https://github.com/xiaoyaoo11/MLAI/issues)
+- Email: ebevutru@gmail.com
