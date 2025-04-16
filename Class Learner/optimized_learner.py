@@ -4,15 +4,17 @@ import torch.nn as nn
 import torch.optim as optim
 import torchvision.transforms as transforms
 import torchvision.models as models
+import torchvision.datasets as datasets
 import PIL.Image as Image
 from torch.utils.data import DataLoader, Dataset
 from typing import Optional, Union, Dict, Any, Tuple
+import numpy as np  # Required for mixup implementation
 
 
 class Learner:
     """
     A class for training, testing, and inference with image classification models.
-    Optimized for flexibility and performance.
+    Optimized for flexibility, performance, and accuracy with advanced techniques.
     """
     
     def __init__(
@@ -25,7 +27,9 @@ class Learner:
         scheduler: torch.optim.lr_scheduler._LRScheduler,
         work_dir: str = "checkpoints",
         pre_train: bool = False,
-        device: Optional[torch.device] = None
+        device: Optional[torch.device] = None,
+        mixup_alpha: float = 0.2,  # Mixup regularization parameter
+        use_mixup: bool = True     # Whether to use mixup augmentation
     ):
         """
         Initialize the Learner with model, data, and training parameters.
@@ -40,6 +44,8 @@ class Learner:
             work_dir: Directory to save model checkpoints
             pre_train: Whether to load pre-trained weights
             device: Device to use for training (default: auto-detect)
+            mixup_alpha: Parameter for mixup regularization
+            use_mixup: Whether to use mixup data augmentation
         """
         # Initialize parameters
         self.model = model
@@ -49,6 +55,8 @@ class Learner:
         self.criterion = loss
         self.scheduler = scheduler
         self.work_dir = work_dir
+        self.mixup_alpha = mixup_alpha
+        self.use_mixup = use_mixup
         
         # Get class names from dataloader
         self.class_names = train_dataloader.dataset.classes if hasattr(train_dataloader.dataset, 'classes') else None
@@ -66,16 +74,47 @@ class Learner:
         # Training tracking variables
         self.best_acc = 0
         self.best_loss = float('inf')
-        self.patience = 5  # Early stopping patience
+        self.patience = 7  # Increased early stopping patience
         self.counter = 0   # Counter for early stopping
         
         # Load pre-trained weights if specified
         if pre_train:
             self._load_best_model()
 
+    def mixup_data(self, x, y, alpha=0.2):
+        """
+        Applies mixup augmentation to batch data.
+        
+        Args:
+            x: Input features
+            y: Target labels
+            alpha: Mixup interpolation strength parameter
+            
+        Returns:
+            Mixed inputs, pairs of targets, and lambda value
+        """
+        if alpha > 0:
+            lam = np.random.beta(alpha, alpha)
+        else:
+            lam = 1
+
+        batch_size = x.size()[0]
+        index = torch.randperm(batch_size).to(self.device)
+
+        mixed_x = lam * x + (1 - lam) * x[index, :]
+        y_a, y_b = y, y[index]
+        return mixed_x, y_a, y_b, lam
+
+    def mixup_criterion(self, pred, y_a, y_b, lam):
+        """
+        Mixup loss function
+        """
+        return lam * self.criterion(pred, y_a) + (1 - lam) * self.criterion(pred, y_b)
+
     def train(self, epochs: int = 10, verbose: bool = True) -> Dict[str, list]:
         """
         Train the model and save best model to checkpoint in work_dir.
+        Implements advanced techniques like mixup for better generalization.
         
         Args:
             epochs: Number of training epochs
@@ -105,17 +144,41 @@ class Learner:
                 # Zero the parameter gradients
                 self.optimizer.zero_grad()
                 
-                # Forward + backward + optimize
-                outputs = self.model(inputs)
-                loss = self.criterion(outputs, targets)
+                # Apply mixup if enabled
+                if self.use_mixup:
+                    inputs, targets_a, targets_b, lam = self.mixup_data(inputs, targets, self.mixup_alpha)
+                    
+                    # Forward pass
+                    outputs = self.model(inputs)
+                    
+                    # Mixup loss
+                    loss = self.mixup_criterion(outputs, targets_a, targets_b, lam)
+                    
+                    # For accuracy calculation with mixup
+                    _, predicted = outputs.max(1)
+                    total += targets.size(0)
+                    correct += (lam * predicted.eq(targets_a).sum().float() + 
+                               (1 - lam) * predicted.eq(targets_b).sum().float()).item()
+                else:
+                    # Regular forward pass
+                    outputs = self.model(inputs)
+                    loss = self.criterion(outputs, targets)
+                    
+                    # Statistics
+                    _, predicted = outputs.max(1)
+                    total += targets.size(0)
+                    correct += predicted.eq(targets).sum().item()
+                
+                # Backward + optimize
                 loss.backward()
+                
+                # Gradient clipping to prevent exploding gradients
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
+                
                 self.optimizer.step()
                 
                 # Statistics
                 running_loss += loss.item() * inputs.size(0)
-                _, predicted = outputs.max(1)
-                total += targets.size(0)
-                correct += predicted.eq(targets).sum().item()
             
             # Calculate epoch metrics
             train_loss = running_loss / len(self.train_dataloader.dataset)
@@ -284,15 +347,20 @@ def create_data_loaders(dataset_path: str, batch_size: int = 32, img_size: int =
     Returns:
         Tuple of (train_loader, val_loader, class_names)
     """
-    # Data transformations
+    # Data transformations with enhanced augmentation for better generalization
     transform_train = transforms.Compose([
-        transforms.Resize((img_size, img_size)),
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomRotation(15),
-        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
-        transforms.RandomResizedCrop(img_size, scale=(0.8, 1.0)),
+        transforms.Resize((img_size+32, img_size+32)),  # Resize larger then crop for more variations
+        transforms.RandomCrop(img_size),
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.RandomVerticalFlip(p=0.1),  # Add vertical flips
+        transforms.RandomRotation(20),  # Increase rotation range
+        transforms.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.3, hue=0.15),  # Increase color jitter
+        transforms.RandomAffine(degrees=0, translate=(0.1, 0.1), scale=(0.8, 1.2), shear=10),  # Add affine transforms
+        transforms.RandomResizedCrop(img_size, scale=(0.7, 1.0)),  # More crop variations
+        transforms.RandomGrayscale(p=0.02),  # Occasional grayscale
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        transforms.RandomErasing(p=0.2, scale=(0.02, 0.2))  # Random erasing for occlusion robustness
     ])
     
     transform_val = transforms.Compose([
