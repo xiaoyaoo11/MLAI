@@ -227,7 +227,7 @@ class Learner:
                 self._save_model()
                 if verbose:
                     print(
-                        f"✅ Best model saved at epoch {epoch+1} with accuracy {val_acc:.2f}%"
+                        f"Best model saved at epoch {epoch+1} with accuracy {val_acc:.2f}%"
                     )
                 self.counter = 0
             else:
